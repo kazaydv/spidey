@@ -68,7 +68,7 @@ setInterval(()=>{
 function greet(preview){
   const h = new Date().getHours();
   const g = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  speak(g + ", Siddhu. Spidey is ready." + (preview ? " Preview mode — brain connects after setup." : ""));
+  addBubble("spidey", g + ", Siddhu. Say 'Hey Spidey' or tap TALK, then just talk — I'll listen first." + (preview ? " Preview mode." : ""));
 }
 
 /* ---------- KNOWLEDGE / OFFLINE BRAIN ---------- */
@@ -146,7 +146,7 @@ function commitHeard(heard){
   if(state.mode === "active"){
     finalBuf = heard;
     clearTimeout(recogTimer);
-    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 250);
+    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 850); // wait for a real pause — react only after Siddhu finishes
   }
 }
 function normTxt(s){ return (s||"").toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/gi," ").replace(/\s+/g," ").trim(); }
@@ -164,7 +164,8 @@ function onResult(ev){
       const h = normTxt(finalTxt || interim);
       const spoken = normTxt(state.speakingText);
       const isEcho = !h || h.length < 3 || (spoken && (spoken.includes(h) || h.split(" ").every(w => !w || spoken.includes(w))));
-      if(isEcho) return; // it's just Spidey's own voice through the speaker
+      const strong = !!finalTxt.trim() || h.split(" ").filter(Boolean).length >= 3; // don't cut in on a stray syllable
+      if(isEcho || !strong) return; // echo = Spidey's own voice; weak = not a real interruption yet
       try{ speechSynthesis.cancel(); }catch(e){}
       if(state.speakFinish) state.speakFinish(); // resolves speak(), sets speaking=false
       setOrb("listening"); setStateText("LISTENING · JUST TALK");
@@ -176,16 +177,16 @@ function onResult(ev){
   if(interim.trim() && state.mode !== "idle"){
     clearTimeout(interimTimer);
     const snapshot = interim.trim();
-    interimTimer = setTimeout(()=>{ if(state.mode !== "idle" && !state.speaking) commitHeard(snapshot); }, 1000);
+    interimTimer = setTimeout(()=>{ if(state.mode !== "idle" && !state.speaking) commitHeard(snapshot); }, 2200); // safety net only — long stable pause counts as finished
   }
   const heard = (finalTxt || "").trim();
   if(!heard) return;
   clearTimeout(interimTimer);
   if(state.mode === "passive"){
-    if(/\bspidey\b/i.test(heard)){ // wake word
-      state.mode = "active"; setOrb("listening"); updateButtons();
+    if(/\bspidey\b/i.test(heard)){ // wake word → straight to listening, no spoken greeting first
+      state.mode = "active"; setOrb("listening"); setStateText("LISTENING · JUST TALK"); updateButtons();
       const rest = heard.replace(/^.*?\bspidey\b[:,]?\s*/i, "").trim();
-      speak("Yes, Siddhu?").then(()=>{ if(rest) handleUserText(rest); else startRecog(); });
+      if(rest) handleUserText(rest); else startRecog();
     }
     return;
   }
@@ -196,6 +197,7 @@ function onResult(ev){
 async function handleUserText(text){
   addBubble("me", text);
   $("#liveText").textContent = "";
+  const el = $("#errLine"); if(el) el.textContent = "";
   setOrb("thinking"); setStateText("Thinking…");
   stopRecog();
   let reply = null;
@@ -215,7 +217,9 @@ async function handleUserText(text){
   if(!reply){
     if(brainError && brainError.startsWith("AUTH")){
       reply = brainError;
+      const el = $("#errLine"); if(el) el.textContent = "⚠ " + brainError;
     } else if(brainError){
+      const el = $("#errLine"); if(el) el.textContent = "⚠ BRAIN ERROR: " + brainError;
       addBubble("spidey", "⚠ BRAIN ERROR: " + brainError);
       state.history.push({ role:"user", text }, { role:"spidey", text: "Brain error: " + brainError });
       await speak("Sorry Siddhu, my brain hit an error just now. The exact error is on the console — tell me what it says.");

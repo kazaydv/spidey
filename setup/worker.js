@@ -74,11 +74,13 @@ async function bridge(env, action, params = {}) {
 async function askGemini(env, systemText, history, userText) {
   // Google closes older models to NEW API users (2.5-flash 404s on new keys since 2026),
   // so walk a fallback list on 404 instead of dying on one hardcoded model.
-  const candidates = [...new Set([env.GEMINI_MODEL, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"].filter(Boolean))];
+  // Free-tier reality (Oct 2026): Flash models allow only ~20 requests/day; Flash-LITE allows ~500/day.
+  // Walk the list on 404 (model closed to new users) AND 429 (that model's quota is spent).
+  const candidates = [...new Set([env.GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"].filter(Boolean))];
   let lastErr = null;
   for (const model of candidates) {
     try { return await askGeminiModel(env, model, systemText, history, userText); }
-    catch (e) { lastErr = e; if (!/gemini 404/.test(String(e))) throw e; }
+    catch (e) { lastErr = e; if (!/gemini (404|429|500|502|503)/.test(String(e))) throw e; }
   }
   throw lastErr || new Error("no Gemini model available");
 }

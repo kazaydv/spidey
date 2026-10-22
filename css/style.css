@@ -186,3 +186,12 @@ button:active{transform:scale(.97)}
   .orbWrap{width:150px;height:150px}.orbWrap .core{width:64px;height:64px}
   .chatLog{max-height:30dvh}
 }
+
+/* ---------- v7 voice-first: no talk transcript — listen, think, respond ---------- */
+.consolePanel{display:none !important}
+.layout{grid-template-columns:minmax(0,780px);grid-template-areas:"stage" "systems";justify-content:center}
+.errLine{color:#f87171;font-size:12px;min-height:16px;text-align:center;margin:2px auto 0;max-width:94%;letter-spacing:.02em}
+@media (min-width:900px){
+  .systemsPanel .sysList{display:grid;grid-template-columns:1fr 1fr;column-gap:26px}
+  .systemsPanel .cards{flex-direction:row}
+}

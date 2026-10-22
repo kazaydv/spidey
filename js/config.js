@@ -9,5 +9,5 @@ window.SPIDEY_CONFIG = {
   // STEP 5 DONE 2026-10-22: Cloudflare Worker live + verified (dashboard reads real sheet data via bridge)
   WORKER_URL: "https://spidey.kazayadav.workers.dev",
 
-  APP_VERSION: "v6"
+  APP_VERSION: "v7"
 };

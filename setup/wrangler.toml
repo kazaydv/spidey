@@ -7,7 +7,7 @@ triggers = { crons = ["* * * * *"] }
 
 [vars]
 ALLOWED_EMAIL = "kazayadav@gmail.com"
-GEMINI_MODEL = "gemini-3.6-flash"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 # GOOGLE_CLIENT_ID is set as a secret too (keeps config.js + worker in sync by hand)
 
 [[kv_namespaces]]
