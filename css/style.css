@@ -145,3 +145,44 @@ button:active{transform:scale(.97)}
   .sysList{grid-template-columns:1fr}
   #nptClock{font-size:14px}
 }
+
+/* ---------- v6 mobile polish: fully responsive, nothing clipped, thumb-first ---------- */
+.layout,.panel,.stage,.consolePanel,.systemsPanel{min-width:0}
+.chatLog,.cards,.sysList{max-width:100%}
+@media (max-width:640px){
+  .screen{padding:10px 10px 14px;gap:10px}
+  .topbar{padding:8px 10px;gap:8px;border-radius:8px}
+  .brandName{font-size:15px;letter-spacing:.22em}
+  #nptClock{font-size:13px}.clockDate{display:none}
+  .conn{font-size:10px;padding:5px 8px}
+  .smallBtn{padding:7px 10px;font-size:11px}
+  .layout{gap:10px}
+  .panel{padding:11px;border-radius:8px}
+  .stage{padding:2px 0 0}
+  .orbFrame{padding:16px}
+  .orbWrap{width:198px;height:198px}
+  .orbWrap .core{width:88px;height:88px}
+  .stateText{font-size:11.5px;letter-spacing:.2em;padding:0 6px}
+  .liveText{font-size:12.5px;padding:0 8px}
+  .controls{width:100%;padding:0 4px}
+  .controls button{flex:1 1 0;min-width:0;padding:13px 8px;font-size:13px;white-space:nowrap}
+  .consolePanel{min-height:0}
+  .chatLog{min-height:150px;max-height:38dvh}
+  .bubble{font-size:13.5px;max-width:94%}
+  .textForm{position:sticky;bottom:0;background:rgba(6,13,28,.92);margin:0 -11px -11px;padding:10px 11px;border-radius:0 0 8px 8px}
+  .textForm input{font-size:14px;padding:11px 12px;min-width:0}
+  .sendBtn{padding:11px 13px}
+  .cards{flex-direction:row;gap:7px}
+  .card{padding:8px 9px}.cardValue{font-size:15.5px}
+  .cardLabel{font-size:9px}
+  .foot{font-size:9px;letter-spacing:.12em;line-height:1.7;padding:0 8px}
+}
+@media (max-width:360px){
+  .orbWrap{width:172px;height:172px}
+  .brandName{font-size:13.5px}
+  .cards{flex-direction:column}
+}
+@media (max-height:500px) and (orientation:landscape){
+  .orbWrap{width:150px;height:150px}.orbWrap .core{width:64px;height:64px}
+  .chatLog{max-height:30dvh}
+}

@@ -1,5 +1,5 @@
 // Spidey shell cache — bump version on every deploy (footer shows the same version).
-const CACHE = "spidey-shell-v5";
+const CACHE = "spidey-shell-v6";
 const ASSETS = ["./", "index.html", "css/style.css", "js/config.js", "js/app.js", "knowledge.json", "manifest.webmanifest", "icon.svg"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled(ASSETS.map(a => c.add(a)))).then(() => self.skipWaiting()));

@@ -26,9 +26,15 @@ function onGoogleCredential(resp){
   sessionStorage.setItem("spidey_token", resp.credential);
   enterApp();
 }
+function tokenAlive(tok){
+  const p = tok && decodeJwt(tok);
+  return !!(p && p.exp && p.exp * 1000 > Date.now() + 90000); // Google ID tokens live ~1h
+}
 function initLogin(){
   const saved = sessionStorage.getItem("spidey_user");
-  if(saved){ state.user = JSON.parse(saved); state.idToken = sessionStorage.getItem("spidey_token"); enterApp(); return; }
+  const savedTok = sessionStorage.getItem("spidey_token");
+  if(saved && tokenAlive(savedTok)){ state.user = JSON.parse(saved); state.idToken = savedTok; enterApp(); return; }
+  if(saved && !tokenAlive(savedTok)){ sessionStorage.removeItem("spidey_token"); $("#loginMsg").textContent = "Session expired (Google logins last ~1 hour) — sign in again, one tap."; }
   if(CFG.GOOGLE_CLIENT_ID && window.google){
     google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, callback: onGoogleCredential });
     google.accounts.id.renderButton($("#googleBtnWrap"), { theme:"filled_black", size:"large", shape:"pill", text:"signin_with" });
@@ -45,6 +51,7 @@ function enterApp(preview){
   $("#hudScreen").classList.remove("hidden");
   $("#connState").textContent = CFG.WORKER_URL ? "LINKING…" : "OFFLINE BRAIN";
   setSys("sysLogin", "ONLINE", "ok");
+  setSys("sysVer", (CFG.APP_VERSION || "?") + (CFG.WORKER_URL ? " · LINKED" : " · NO URL"), CFG.WORKER_URL ? "ok" : "bad");
   if(!SR) setSys("sysVoice", "NO MIC API", "bad");
   if(CFG.WORKER_URL){ setSys("sysBrain", "LINKING", "warn"); loadDashboard(); }
   loadKnowledge();
@@ -92,19 +99,21 @@ function speak(text){
     addBubble("spidey", text);
     if(!("speechSynthesis" in window)){ res(); return; }
     let done = false;
-    const finish = ()=>{ if(done) return; done = true; state.speaking = false;
+    const finish = ()=>{ if(done) return; done = true; state.speaking = false; state.speakFinish = null; state.speakingText = "";
       if(state.mode==="active") setOrb("listening"); else if(state.mode==="passive") setOrb("idle"); res(); };
     try{ speechSynthesis.cancel(); }catch(e){}
     const u = new SpeechSynthesisUtterance(text.replace(/[*_#`>]/g,""));
     const v = pickVoice(); if(v) u.voice = v;
-    u.rate = 1.02; u.pitch = 0.9;
-    state.speaking = true; setOrb("speaking");
+    u.rate = 1.06; u.pitch = 0.9;
+    state.speaking = true; state.speakFinish = finish; state.speakingText = text; setOrb("speaking");
     u.onend = u.onerror = finish;
     // Watchdog: some Android Chrome builds never fire onend (stuck speaking = deaf Spidey).
     // If the utterance overruns its estimate, force-finish so conversation can continue.
     const est = Math.min(22000, 2800 + text.length * 95);
     setTimeout(()=>{ if(!done){ try{ speechSynthesis.cancel(); }catch(e){} finish(); } }, est);
     try{ speechSynthesis.speak(u); }catch(e){ finish(); }
+    // Barge-in: keep the mic live during speech (conversation mode) so Siddhu can interrupt.
+    if(state.mode === "active") setTimeout(()=>{ if(state.speaking) startRecog(true); }, 120);
   });
 }
 
@@ -116,12 +125,13 @@ function makeRecog(){
   r.continuous = true; r.interimResults = true;
   r.lang = "en-IN"; // best free fit for Siddhu's English/Neplish mix; Nepali words still pass through as sounds-to-text
   r.onresult = onResult;
-  r.onend = ()=>{ state.recogOn = false; if(state.mode==="passive" || state.mode==="active") setTimeout(()=>startRecog(), 350); };
+  r.onend = ()=>{ state.recogOn = false; if(state.mode==="passive" || state.mode==="active") setTimeout(()=>startRecog(state.speaking && state.mode==="active"), 300); };
   r.onerror = e=>{ if(e.error==="not-allowed"){ setStateText("Mic permission denied — allow microphone for Spidey."); state.mode="idle"; updateButtons(); } };
   return r;
 }
-function startRecog(){
-  if(state.recogOn || state.speaking) return;
+function startRecog(force){
+  if(state.recogOn) return;
+  if(state.speaking && !force) return; // force = barge-in listening while Spidey talks
   if(!state.recog) state.recog = makeRecog();
   if(!state.recog){ setStateText("Voice input needs Chrome on Android/PC."); return; }
   try{ state.recog.start(); state.recogOn = true; }catch(e){}
@@ -136,26 +146,37 @@ function commitHeard(heard){
   if(state.mode === "active"){
     finalBuf = heard;
     clearTimeout(recogTimer);
-    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 450);
+    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 250);
   }
 }
+function normTxt(s){ return (s||"").toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/gi," ").replace(/\s+/g," ").trim(); }
 function onResult(ev){
-  // Ignore our own voice — but never trust a stuck flag: if the synth is silent, we are NOT speaking.
-  if(state.speaking){
-    if(window.speechSynthesis && speechSynthesis.speaking) return;
-    state.speaking = false;
-  }
   let interim = "", finalTxt = "";
   for(let i = ev.resultIndex; i < ev.results.length; i++){
     const tr = ev.results[i][0].transcript;
     if(ev.results[i].isFinal) finalTxt += tr; else interim += tr;
+  }
+  if(state.speaking){
+    // Self-heal a stuck flag first: synth silent means we are NOT speaking.
+    if(!(window.speechSynthesis && speechSynthesis.speaking)){ state.speaking = false; }
+    else {
+      // Barge-in check: real user speech (not Spidey's own echo) cuts Spidey off instantly.
+      const h = normTxt(finalTxt || interim);
+      const spoken = normTxt(state.speakingText);
+      const isEcho = !h || h.length < 3 || (spoken && (spoken.includes(h) || h.split(" ").every(w => !w || spoken.includes(w))));
+      if(isEcho) return; // it's just Spidey's own voice through the speaker
+      try{ speechSynthesis.cancel(); }catch(e){}
+      if(state.speakFinish) state.speakFinish(); // resolves speak(), sets speaking=false
+      setOrb("listening"); setStateText("LISTENING · JUST TALK");
+      // fall through: process what Siddhu just said
+    }
   }
   $("#liveText").textContent = interim || finalTxt;
   // Some Android builds are slow to mark finals — if interim text sits stable, treat it as said.
   if(interim.trim() && state.mode !== "idle"){
     clearTimeout(interimTimer);
     const snapshot = interim.trim();
-    interimTimer = setTimeout(()=>{ if(state.mode !== "idle" && !state.speaking) commitHeard(snapshot); }, 1500);
+    interimTimer = setTimeout(()=>{ if(state.mode !== "idle" && !state.speaking) commitHeard(snapshot); }, 1000);
   }
   const heard = (finalTxt || "").trim();
   if(!heard) return;
@@ -186,24 +207,66 @@ async function handleUserText(text){
     reply = "Done, Siddhu. I'll remind you " + rem.whenText + ": " + rem.text + ". It'll come on Telegram and Discord too.";
   }
 
+  let brainError = null;
   if(!reply && CFG.WORKER_URL){
-    try{ reply = await askWorker(text); }catch(e){ reply = null; }
+    try{ reply = await askWorker(text); }catch(e){ brainError = String(e && e.message || e); }
   }
-  if(!reply) reply = offlineAnswer(text);
-  if(!reply) reply = "I heard you, Siddhu, but my full brain isn't connected yet. Finish the setup steps and I'll answer everything — sheets, web, reminders, all of it.";
+  if(!reply && !CFG.WORKER_URL) reply = offlineAnswer(text);
+  if(!reply){
+    if(brainError && brainError.startsWith("AUTH")){
+      reply = brainError;
+    } else if(brainError){
+      addBubble("spidey", "⚠ BRAIN ERROR: " + brainError);
+      state.history.push({ role:"user", text }, { role:"spidey", text: "Brain error: " + brainError });
+      await speak("Sorry Siddhu, my brain hit an error just now. The exact error is on the console — tell me what it says.");
+      afterReply(); return;
+    } else {
+      reply = offlineAnswer(text) || "I heard you, Siddhu, but my full brain isn't connected yet. Finish the setup steps and I'll answer everything — sheets, web, reminders, all of it.";
+    }
+  }
   state.history.push({ role:"user", text }, { role:"spidey", text: reply });
   await speak(reply);
+  afterReply();
+}
+function afterReply(){
   setStateText(state.mode==="active" ? "LISTENING · JUST TALK" : "SYSTEM READY · SAY ‘HEY SPIDEY’ OR TAP TALK");
   if(state.mode==="active") startRecog();
 }
-async function askWorker(text){
+function refreshGoogleToken(){
+  return new Promise(resolve=>{
+    if(!window.google || !CFG.GOOGLE_CLIENT_ID) return resolve(false);
+    let settled = false; const done = ok => { if(!settled){ settled = true; resolve(ok); } };
+    try{
+      google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, callback: r=>{
+        if(r && r.credential && tokenAlive(r.credential)){
+          state.idToken = r.credential; sessionStorage.setItem("spidey_token", r.credential);
+          const p = decodeJwt(r.credential); if(p){ state.user = p; sessionStorage.setItem("spidey_user", JSON.stringify(p)); }
+          done(true);
+        } else done(false);
+      }});
+      google.accounts.id.prompt();
+    }catch(e){ done(false); }
+    setTimeout(()=>done(false), 7000);
+  });
+}
+async function askWorkerOnce(text){
   const r = await fetch(CFG.WORKER_URL.replace(/\/$/,"") + "/chat", {
     method:"POST", headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ session: state.session, email: state.user?.email, idToken: state.idToken, text, history: state.history.slice(-10) })
   });
-  if(!r.ok) throw new Error("worker " + r.status);
-  const j = await r.json();
-  return j.reply || null;
+  const j = await r.json().catch(()=>({}));
+  return { status: r.status, reply: j.reply || null, error: j.error || null };
+}
+async function askWorker(text){
+  let out = await askWorkerOnce(text);
+  if(out.status === 403){ // almost always: the ~1h Google token expired
+    const ok = await refreshGoogleToken();
+    if(ok) out = await askWorkerOnce(text);
+    if(out.status === 403) throw new Error("AUTH — Google session expired. Sign out (EXIT) and sign in again.");
+  }
+  if(out.reply) return out.reply;
+  if(out.error) throw new Error(out.error.slice(0, 140));
+  throw new Error("worker returned no reply (status " + out.status + ")");
 }
 async function loadDashboard(){
   try{
