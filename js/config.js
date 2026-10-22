@@ -9,5 +9,5 @@ window.SPIDEY_CONFIG = {
   // STEP 5 of SETUP: paste the Cloudflare Worker URL, e.g. "https://spidey.<you>.workers.dev"
   WORKER_URL: "",
 
-  APP_VERSION: "v3"
+  APP_VERSION: "v4"
 };

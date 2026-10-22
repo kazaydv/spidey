@@ -79,23 +79,32 @@ function offlineAnswer(text){
 /* ---------- SPEECH OUT (friendly male; prefers UK English male) ---------- */
 function pickVoice(){
   const vs = speechSynthesis.getVoices();
-  return vs.find(v=>/Google UK English Male/i.test(v.name))
-      || vs.find(v=>/en[-_]GB/i.test(v.lang) && /male|daniel|george|arthur|brian/i.test(v.name))
-      || vs.find(v=>/en[-_]GB/i.test(v.lang))
-      || vs.find(v=>/^en/i.test(v.lang)) || vs[0];
+  const local = vs.filter(v=>v.localService); // on-device voices never stall waiting for network TTS
+  const pool = local.length ? local : vs;
+  return pool.find(v=>/Google UK English Male/i.test(v.name))
+      || pool.find(v=>/en[-_]GB/i.test(v.lang) && /male|daniel|george|arthur|brian/i.test(v.name))
+      || pool.find(v=>/en[-_]GB/i.test(v.lang))
+      || pool.find(v=>/^en/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)) || vs[0];
 }
 if("speechSynthesis" in window) speechSynthesis.onvoiceschanged = ()=>pickVoice();
 function speak(text){
   return new Promise(res=>{
     addBubble("spidey", text);
     if(!("speechSynthesis" in window)){ res(); return; }
-    speechSynthesis.cancel();
+    let done = false;
+    const finish = ()=>{ if(done) return; done = true; state.speaking = false;
+      if(state.mode==="active") setOrb("listening"); else if(state.mode==="passive") setOrb("idle"); res(); };
+    try{ speechSynthesis.cancel(); }catch(e){}
     const u = new SpeechSynthesisUtterance(text.replace(/[*_#`>]/g,""));
     const v = pickVoice(); if(v) u.voice = v;
     u.rate = 1.02; u.pitch = 0.9;
     state.speaking = true; setOrb("speaking");
-    u.onend = u.onerror = ()=>{ state.speaking = false; if(state.mode==="active") setOrb("listening"); else if(state.mode==="passive") setOrb("idle"); res(); };
-    speechSynthesis.speak(u);
+    u.onend = u.onerror = finish;
+    // Watchdog: some Android Chrome builds never fire onend (stuck speaking = deaf Spidey).
+    // If the utterance overruns its estimate, force-finish so conversation can continue.
+    const est = Math.min(22000, 2800 + text.length * 95);
+    setTimeout(()=>{ if(!done){ try{ speechSynthesis.cancel(); }catch(e){} finish(); } }, est);
+    try{ speechSynthesis.speak(u); }catch(e){ finish(); }
   });
 }
 
@@ -119,17 +128,38 @@ function startRecog(){
 }
 function stopRecog(){ try{ state.recog && state.recog.stop(); }catch(e){} state.recogOn = false; }
 
-let finalBuf = "", recogTimer = null;
+let finalBuf = "", recogTimer = null, interimTimer = null, lastCommitted = "", lastCommitAt = 0;
+function commitHeard(heard){
+  const now = Date.now();
+  if(heard === lastCommitted && now - lastCommitAt < 2500) return; // dedupe interim-commit vs late final
+  lastCommitted = heard; lastCommitAt = now;
+  if(state.mode === "active"){
+    finalBuf = heard;
+    clearTimeout(recogTimer);
+    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 450);
+  }
+}
 function onResult(ev){
-  if(state.speaking) return; // don't listen to our own voice
+  // Ignore our own voice — but never trust a stuck flag: if the synth is silent, we are NOT speaking.
+  if(state.speaking){
+    if(window.speechSynthesis && speechSynthesis.speaking) return;
+    state.speaking = false;
+  }
   let interim = "", finalTxt = "";
   for(let i = ev.resultIndex; i < ev.results.length; i++){
     const tr = ev.results[i][0].transcript;
     if(ev.results[i].isFinal) finalTxt += tr; else interim += tr;
   }
   $("#liveText").textContent = interim || finalTxt;
+  // Some Android builds are slow to mark finals — if interim text sits stable, treat it as said.
+  if(interim.trim() && state.mode !== "idle"){
+    clearTimeout(interimTimer);
+    const snapshot = interim.trim();
+    interimTimer = setTimeout(()=>{ if(state.mode !== "idle" && !state.speaking) commitHeard(snapshot); }, 1500);
+  }
   const heard = (finalTxt || "").trim();
   if(!heard) return;
+  clearTimeout(interimTimer);
   if(state.mode === "passive"){
     if(/\bspidey\b/i.test(heard)){ // wake word
       state.mode = "active"; setOrb("listening"); updateButtons();
@@ -138,11 +168,7 @@ function onResult(ev){
     }
     return;
   }
-  if(state.mode === "active"){
-    finalBuf = heard;
-    clearTimeout(recogTimer);
-    recogTimer = setTimeout(()=>{ const t = finalBuf; finalBuf=""; if(t) handleUserText(t); }, 450);
-  }
+  if(state.mode === "active"){ commitHeard(heard); }
 }
 
 /* ---------- CONVERSATION ---------- */

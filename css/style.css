@@ -135,7 +135,7 @@ button:active{transform:scale(.97)}
 /* ---------- responsive ---------- */
 @media (max-width:1020px){
   .layout{grid-template-columns:1fr; }
-  .systemsPanel{order:2}.consolePanel{order:3;min-height:340px}
+  .consolePanel{order:2;min-height:340px}.systemsPanel{order:3}
   .cards{flex-direction:row}.card{flex:1}
   .sysList{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
 }
