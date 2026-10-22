@@ -3,60 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>Spidey — Siddhu's Assistant</title>
-<meta name="theme-color" content="#050914">
+<title>SPIDEY // Personal Intelligence System</title>
+<meta name="theme-color" content="#04070f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<div class="bgGrid"></div>
+<div class="bgGlow"></div>
 
 <!-- LOGIN GATE -->
-<section id="loginScreen" class="screen">
-  <div class="logoOrb small"><div class="core"></div></div>
-  <h1>SPIDEY</h1>
-  <p class="sub">Siddhu&rsquo;s personal assistant.<br>Private — one user only.</p>
-  <div id="googleBtnWrap"></div>
-  <p id="loginMsg" class="msg"></p>
-  <button id="previewBtn" class="ghost hidden">Enter preview (no login configured yet)</button>
-  <p class="tiny">Spidey v2</p>
+<section id="loginScreen" class="screen loginScreen">
+  <div class="loginCard">
+    <div class="logoOrb"><div class="core"></div><div class="orbRing"></div></div>
+    <h1 class="logoText">SPIDEY</h1>
+    <p class="tagline">PERSONAL INTELLIGENCE SYSTEM</p>
+    <div class="loginDivider"><span></span><i></i><span></span></div>
+    <p class="sub">Restricted access terminal.<br>Authorised user only.</p>
+    <div id="googleBtnWrap"></div>
+    <p id="loginMsg" class="msg"></p>
+    <button id="previewBtn" class="ghost hidden">Enter preview mode</button>
+    <p class="tiny mono" id="loginVer">SPIDEY OS · v3</p>
+  </div>
 </section>
 
 <!-- MAIN HUD -->
 <section id="hudScreen" class="screen hidden">
-  <header>
-    <div class="brand"><span class="dot"></span> SPIDEY</div>
-    <div id="connState" class="conn">offline brain</div>
-    <button id="signOutBtn" class="ghost smallBtn">Sign out</button>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brandMark"></span>
+      <span class="brandName">SPIDEY</span>
+      <span class="brandSub mono">INTELLIGENCE SYSTEM</span>
+    </div>
+    <div class="topRight">
+      <div class="clockBox mono">
+        <div id="nptClock">--:--:--</div>
+        <div id="nptDate" class="clockDate">KATHMANDU</div>
+      </div>
+      <div id="connState" class="conn mono">OFFLINE BRAIN</div>
+      <button id="signOutBtn" class="ghost smallBtn mono">EXIT</button>
+    </div>
   </header>
 
-  <div class="cards">
-    <div class="card"><div class="cardLabel">Today&rsquo;s orders</div><div class="cardValue" id="cardOrders">—</div></div>
-    <div class="card"><div class="cardLabel">Revenue today</div><div class="cardValue" id="cardRevenue">—</div></div>
-    <div class="card"><div class="cardLabel">College mail</div><div class="cardValue" id="cardMail">—</div></div>
-  </div>
+  <main class="layout">
+    <aside class="panel systemsPanel">
+      <div class="panelHead mono">SYSTEMS</div>
+      <ul class="sysList mono">
+        <li><span>Identity / Login</span><b id="sysLogin" class="st ok">ONLINE</b></li>
+        <li><span>Voice Engine</span><b id="sysVoice" class="st ok">READY</b></li>
+        <li><span>Neural Brain</span><b id="sysBrain" class="st warn">STANDBY</b></li>
+        <li><span>Sheets Uplink</span><b id="sysSheets" class="st warn">STANDBY</b></li>
+        <li><span>Web Search</span><b id="sysWeb" class="st warn">VIA BRAIN</b></li>
+        <li><span>Alerts · TG / Discord</span><b id="sysAlerts" class="st warn">VIA BRAIN</b></li>
+      </ul>
+      <div class="panelHead mono">LIVE DATA</div>
+      <div class="cards">
+        <div class="card"><div class="cardLabel mono">Orders · Today</div><div class="cardValue" id="cardOrders">—</div></div>
+        <div class="card"><div class="cardLabel mono">Revenue · Today</div><div class="cardValue" id="cardRevenue">—</div></div>
+        <div class="card"><div class="cardLabel mono">College Mail</div><div class="cardValue" id="cardMail">—</div></div>
+      </div>
+    </aside>
 
-  <div class="orbWrap" id="orbWrap" data-state="idle">
-    <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
-    <div class="core" id="orbCore"></div>
-  </div>
-  <p id="stateText" class="stateText">Tap the core and talk, or say &ldquo;Hey Spidey&rdquo;</p>
-  <p id="liveText" class="liveText"></p>
+    <section class="stage">
+      <div class="orbFrame">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="orbWrap" id="orbWrap" data-state="idle">
+          <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <div class="ticks"></div>
+          <div class="core" id="orbCore"></div>
+          <div class="eq"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <p id="stateText" class="stateText mono">SYSTEM READY</p>
+      <p id="liveText" class="liveText mono"></p>
+      <div class="controls">
+        <button id="talkBtn" class="primary mono">◉ &nbsp;TALK TO SPIDEY</button>
+        <button id="wakeBtn" class="ghost mono">WAKE WORD · OFF</button>
+      </div>
+    </section>
 
-  <div class="controls">
-    <button id="talkBtn" class="primary">🎙 Talk to Spidey</button>
-    <button id="wakeBtn" class="ghost">Wake word: OFF</button>
-  </div>
+    <aside class="panel consolePanel">
+      <div class="panelHead mono">CONSOLE</div>
+      <div id="chatLog" class="chatLog"></div>
+      <form id="textForm" class="textForm">
+        <span class="promptSign mono">&gt;</span>
+        <input id="textInput" type="text" placeholder="Type a command… English / Nepali / mixed" autocomplete="off">
+        <button type="submit" class="primary sendBtn mono">SEND</button>
+      </form>
+    </aside>
+  </main>
 
-  <div id="chatLog" class="chatLog"></div>
-
-  <form id="textForm" class="textForm">
-    <input id="textInput" type="text" placeholder="Or type here… English / Nepali / mixed" autocomplete="off">
-    <button type="submit" class="primary sendBtn">Send</button>
-  </form>
-  <p class="tiny center">Spidey <span id="verFoot">v1</span> · work + college only · reminders go to Telegram + Discord</p>
+  <footer class="foot mono">SPIDEY OS <span id="verFoot">v3</span> · USER: SIDDHU · VOICE + DISCORD + TELEGRAM · ALL SYSTEMS NOMINAL</footer>
 </section>
 
 <script src="js/app.js"></script>

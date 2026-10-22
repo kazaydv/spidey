@@ -43,11 +43,21 @@ $("#signOutBtn").addEventListener("click", ()=>{ sessionStorage.clear(); locatio
 function enterApp(preview){
   $("#loginScreen").classList.add("hidden");
   $("#hudScreen").classList.remove("hidden");
-  $("#connState").textContent = CFG.WORKER_URL ? "connecting…" : "offline brain";
-  if(CFG.WORKER_URL) loadDashboard();
+  $("#connState").textContent = CFG.WORKER_URL ? "LINKING…" : "OFFLINE BRAIN";
+  setSys("sysLogin", "ONLINE", "ok");
+  if(!SR) setSys("sysVoice", "NO MIC API", "bad");
+  if(CFG.WORKER_URL){ setSys("sysBrain", "LINKING", "warn"); loadDashboard(); }
   loadKnowledge();
   greet(preview);
 }
+function setSys(id, text, cls){ const el = document.getElementById(id); if(!el) return; el.textContent = text; el.className = "st " + cls; }
+/* Kathmandu clock */
+setInterval(()=>{
+  const now = new Date();
+  const c = $("#nptClock"), d = $("#nptDate"); if(!c) return;
+  c.textContent = now.toLocaleTimeString("en-GB", { timeZone:"Asia/Kathmandu", hour12:false });
+  d.textContent = now.toLocaleDateString("en-GB", { timeZone:"Asia/Kathmandu", weekday:"short", day:"2-digit", month:"short" }).toUpperCase() + " · NPT";
+}, 1000);
 function greet(preview){
   const h = new Date().getHours();
   const g = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -157,7 +167,7 @@ async function handleUserText(text){
   if(!reply) reply = "I heard you, Siddhu, but my full brain isn't connected yet. Finish the setup steps and I'll answer everything — sheets, web, reminders, all of it.";
   state.history.push({ role:"user", text }, { role:"spidey", text: reply });
   await speak(reply);
-  setStateText(state.mode==="active" ? "Listening… just talk. Say “thank you Spidey” to stop." : "Tap the core and talk, or say “Hey Spidey”");
+  setStateText(state.mode==="active" ? "LISTENING · JUST TALK" : "SYSTEM READY · SAY ‘HEY SPIDEY’ OR TAP TALK");
   if(state.mode==="active") startRecog();
 }
 async function askWorker(text){
@@ -177,8 +187,9 @@ async function loadDashboard(){
     $("#cardOrders").textContent = j.ordersToday ?? "—";
     $("#cardRevenue").textContent = j.revenueToday ? "Rs " + Number(j.revenueToday).toLocaleString("en-IN") : "—";
     $("#cardMail").textContent = j.collegeMail ?? "—";
-    $("#connState").textContent = "brain live"; $("#connState").classList.add("live");
-  }catch(e){ $("#connState").textContent = "offline brain"; }
+    $("#connState").textContent = "BRAIN LIVE"; $("#connState").classList.add("live");
+    setSys("sysBrain", "ONLINE", "ok"); setSys("sysSheets", "ONLINE", "ok");
+  }catch(e){ $("#connState").textContent = "OFFLINE BRAIN"; setSys("sysBrain", "UNREACHABLE", "bad"); setSys("sysSheets", "UNREACHABLE", "bad"); }
 }
 
 /* ---------- REMINDERS ---------- */
@@ -213,21 +224,23 @@ setInterval(()=>{
 
 /* ---------- UI ---------- */
 function addBubble(who, text){
-  const d = document.createElement("div"); d.className = "bubble " + who; d.textContent = text;
+  const d = document.createElement("div"); d.className = "bubble " + who;
+  const w = document.createElement("span"); w.className = "who"; w.textContent = who === "me" ? "SIDDHU" : "SPIDEY";
+  d.appendChild(w); d.appendChild(document.createTextNode(text));
   $("#chatLog").appendChild(d); d.scrollIntoView({ behavior:"smooth", block:"end" });
 }
 function setOrb(s){ $("#orbWrap").dataset.state = s; }
 function setStateText(t){ $("#stateText").textContent = t; }
-function updateButtons(){ $("#wakeBtn").textContent = "Wake word: " + (state.mode==="passive" ? "ON" : "OFF"); $("#talkBtn").textContent = state.mode==="active" ? "⏹ Stop conversation" : "🎙 Talk to Spidey"; }
+function updateButtons(){ $("#wakeBtn").textContent = "WAKE WORD · " + (state.mode==="passive" ? "ON" : "OFF"); $("#talkBtn").textContent = state.mode==="active" ? "■ STOP" : "◉  TALK TO SPIDEY"; }
 $("#talkBtn").addEventListener("click", ()=>{
-  if(state.mode === "active"){ state.mode = "idle"; stopRecog(); speechSynthesis.cancel(); setOrb("idle"); setStateText("Tap the core and talk, or say “Hey Spidey”"); }
-  else { state.mode = "active"; if("Notification" in window) Notification.requestPermission().catch(()=>{}); setOrb("listening"); setStateText("Listening… just talk."); startRecog(); }
+  if(state.mode === "active"){ state.mode = "idle"; stopRecog(); speechSynthesis.cancel(); setOrb("idle"); setStateText("SYSTEM READY · SAY ‘HEY SPIDEY’ OR TAP TALK"); }
+  else { state.mode = "active"; if("Notification" in window) Notification.requestPermission().catch(()=>{}); setOrb("listening"); setStateText("LISTENING · JUST TALK"); startRecog(); }
   updateButtons();
 });
 $("#orbWrap").addEventListener("click", ()=> $("#talkBtn").click());
 $("#wakeBtn").addEventListener("click", ()=>{
   if(state.mode === "passive"){ state.mode = "idle"; stopRecog(); setOrb("idle"); }
-  else { state.mode = "passive"; setOrb("idle"); setStateText("Wake word on — say “Hey Spidey” anytime this app is open."); startRecog(); }
+  else { state.mode = "passive"; setOrb("idle"); setStateText("WAKE WORD ACTIVE · SAY ‘HEY SPIDEY’"); startRecog(); }
   updateButtons();
 });
 $("#textForm").addEventListener("submit", e=>{ e.preventDefault(); const v = $("#textInput").value.trim(); if(!v) return; $("#textInput").value=""; if(state.mode!=="active") state.mode="active"; handleUserText(v); updateButtons(); });

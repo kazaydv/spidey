@@ -1,0 +1,27 @@
+name = "spidey"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Free tier. Cron checks reminders every minute.
+triggers = { crons = ["* * * * *"] }
+
+[vars]
+ALLOWED_EMAIL = "kazayadav@gmail.com"
+GEMINI_MODEL = "gemini-2.5-flash"
+# GOOGLE_CLIENT_ID is set as a secret too (keeps config.js + worker in sync by hand)
+
+[[kv_namespaces]]
+binding = "SPIDEY_KV"
+# id is filled in by:  wrangler kv namespace create SPIDEY_KV
+id = "REPLACE_WITH_KV_ID"
+
+# Secrets — NEVER commit these. Set each with:
+#   wrangler secret put GEMINI_API_KEY
+#   wrangler secret put GOOGLE_CLIENT_ID
+#   wrangler secret put BRIDGE_URL
+#   wrangler secret put BRIDGE_KEY
+#   wrangler secret put TELEGRAM_BOT_TOKEN
+#   wrangler secret put TELEGRAM_CHAT_ID
+#   wrangler secret put DISCORD_BOT_TOKEN
+#   wrangler secret put DISCORD_CHANNEL_ID
+#   wrangler secret put DISCORD_PUBLIC_KEY
