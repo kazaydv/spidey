@@ -72,7 +72,17 @@ async function bridge(env, action, params = {}) {
 
 /* ---------- Gemini (free tier) with web grounding ---------- */
 async function askGemini(env, systemText, history, userText) {
-  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  // Google closes older models to NEW API users (2.5-flash 404s on new keys since 2026),
+  // so walk a fallback list on 404 instead of dying on one hardcoded model.
+  const candidates = [...new Set([env.GEMINI_MODEL, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"].filter(Boolean))];
+  let lastErr = null;
+  for (const model of candidates) {
+    try { return await askGeminiModel(env, model, systemText, history, userText); }
+    catch (e) { lastErr = e; if (!/gemini 404/.test(String(e))) throw e; }
+  }
+  throw lastErr || new Error("no Gemini model available");
+}
+async function askGeminiModel(env, model, systemText, history, userText) {
   const contents = [];
   for (const h of (history || []).slice(-10))
     contents.push({ role: h.role === "spidey" ? "model" : "user", parts: [{ text: h.text }] });
